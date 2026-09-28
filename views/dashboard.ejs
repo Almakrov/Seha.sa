@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>إدخال بيانات التقارير الطبية</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Tahoma, Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 20px; }
+  .container { max-width: 950px; margin: 0 auto; }
+  .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+  h1 { color: #1e3a5f; font-size: 20px; margin: 0; }
+  a.logout { color: #c0392b; text-decoration: none; font-size: 14px; }
+  .card { background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.06); margin-bottom: 24px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  label { font-size: 13px; color: #555; display: block; margin-bottom: 4px; }
+  input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
+  button.submit { margin-top: 16px; background: #1e3a5f; color: #fff; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 15px; }
+  button.submit:hover { background: #2c5f8a; }
+  .msg-success { background: #d4edda; color: #155724; padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; }
+  .msg-error { background: #f8d7da; color: #721c24; padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 8px; border-bottom: 1px solid #eee; text-align: center; white-space: nowrap; }
+  th { background: #f0f2f5; }
+  .code { font-weight: bold; color: #1e3a5f; }
+  .table-wrap { overflow-x: auto; }
+  form.delete-form { display: inline; }
+  .del-btn { background: none; border: none; color: #c0392b; cursor: pointer; font-size: 13px; }
+  @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="topbar">
+    <h1>📋 إدخال بيانات التقارير الطبية</h1>
+    <a class="logout" href="/logout">تسجيل الخروج</a>
+  </div>
+
+  <div class="card">
+    <% if (success) { %><div class="msg-success"><%= success %></div><% } %>
+    <% if (error) { %><div class="msg-error"><%= error %></div><% } %>
+    <form method="POST" action="/submit">
+      <div class="grid">
+        <div><label>رمز الخدمة</label><input type="text" name="service_code" required></div>
+        <div><label>الاسم</label><input type="text" name="full_name" required></div>
+        <div><label>رقم الهوية</label><input type="text" name="national_id" required></div>
+        <div><label>تاريخ الإصدار</label><input type="date" name="issue_date" required></div>
+        <div><label>اسم الطبيب</label><input type="text" name="doctor_name" required></div>
+        <div><label>يبدأ من</label><input type="date" name="start_date" id="start_date" required></div>
+        <div><label>حتى</label><input type="date" name="end_date" id="end_date" required></div>
+        <div><label>المدة (يوم)</label><input type="text" id="duration_display" readonly placeholder="تُحسب تلقائياً"></div>
+        <div><label>المسمى الوظيفي</label><input type="text" name="job_title" required></div>
+      </div>
+      <button class="submit" type="submit">حفظ وإصدار رمز الخدمة</button>
+    </form>
+  </div>
+
+  <script>
+    function calcDuration() {
+      const start = document.getElementById('start_date').value;
+      const end = document.getElementById('end_date').value;
+      const out = document.getElementById('duration_display');
+      if (start && end) {
+        const days = Math.round((new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24)) + 1;
+        out.value = days >= 1 ? days : '';
+      } else {
+        out.value = '';
+      }
+    }
+    document.getElementById('start_date').addEventListener('change', calcDuration);
+    document.getElementById('end_date').addEventListener('change', calcDuration);
+  </script>
+
+  <div class="card">
+    <h2 style="font-size:16px;color:#1e3a5f;margin-top:0;">آخر السجلات (<%= records.length %>)</h2>
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>رمز الخدمة</th><th>الاسم</th><th>رقم الهوية</th><th>الإصدار</th><th>من</th><th>حتى</th><th>المدة (يوم)</th><th>الطبيب</th><th>الوظيفة</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% records.forEach(r => { %>
+        <tr>
+          <td class="code"><%= r.service_code %></td>
+          <td><%= r.full_name %></td>
+          <td><%= r.national_id %></td>
+          <td><%= new Date(r.issue_date).toLocaleDateString('en-GB') %></td>
+          <td><%= new Date(r.start_date).toLocaleDateString('en-GB') %></td>
+          <td><%= new Date(r.end_date).toLocaleDateString('en-GB') %></td>
+          <td><%= r.duration_days %></td>
+          <td><%= r.doctor_name %></td>
+          <td><%= r.job_title %></td>
+          <td>
+            <form class="delete-form" method="POST" action="/delete/<%= r.id %>" onsubmit="return confirm('تأكيد الحذف؟');">
+              <button class="del-btn" type="submit">حذف</button>
+            </form>
+          </td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+</body>
+</html>
